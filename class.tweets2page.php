@@ -147,8 +147,10 @@ class Tweets2Page {
 	// cycle on the tweets
 	foreach($tw_2_be_parsed as $tw){
 	    
+	    $url= $tw->entities->urls[0]->expanded_url;
+	    
 	    // Create a Single page Parser
-	    $obj = new SinglePageParser($url, $this->debug);
+	    $obj = new SinglePageParser($url, array(), $this->debug);
 	    
 	    
 	    // Start print results
@@ -232,7 +234,7 @@ class SinglePageParser {
     
     
     
-    public function __construct($url, $debug=false) {
+    public function __construct($url, $contents=array(), $debug=false) {
 	
 	$this->T0 = microtime(true);
 	
@@ -240,37 +242,18 @@ class SinglePageParser {
 	
 	$this->url=$url;
 	
-	$this->parse($this->url);
-    }
-    
-    /**
-     * Set real location (not tw.co/abcd)
-     * 
-     * @param type $http_response_header 
-     
-    private function header_code( $rh ){
-	       
-        // Display easy-to-read valid PHP array code
-        $this->headers =  $rh;
-	
-	$tmp=$this->headers;
-	
-	krsort($tmp);
-	
-	foreach($tmp as $hhh){
+	if(!is_array($contents) || count($contents)==0){
 	    
-	    if(strpos($hhh,":")!==false){
-		list($h,$url)=explode(":",$hhh,2);
-
-		if($h=="Location"){
-
-		    return trim($url);
-		}
-	    }
+	    list($html,$cinfo)=$this->get_content($url);
+	}
+	else{
+	    list($html,$cinfo)=$contents;
 	}
 	
-	return null;
-    }*/
+	$this->parse($html, $cinfo);
+    }
+    
+    
     
     
     
@@ -288,12 +271,17 @@ class SinglePageParser {
     }
     
     
+    public function get_content(){
+	
+	
+	return mycurl($this->url);
+    }
     
     /**
      * Parse and find contents from URL
      * 
      */
-    public function parse() {
+    public function parse($html, $cinfo) {
 	
         // Make first request
 	/*
@@ -310,7 +298,6 @@ class SinglePageParser {
 	 * 
 	 */
 	
-	list($html,$cinfo)=mycurl($this->url);
 	
 	if($cinfo['http_code']=='200'){
 	
