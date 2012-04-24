@@ -68,6 +68,9 @@ class Tweets2Page {
 	//  Get the Tweets!
 	$tweets= $this->getTweets($search);
 	
+	// Tweets to be parsed
+	$tw_2_be_parsed=array();
+	
 	// cycle on the tweets
 	foreach($tweets->results as $tw){
 	    
@@ -128,8 +131,21 @@ class Tweets2Page {
 		
 	    }
 	    
+	 
+	    // 4: is in DB?
+	    // TODO
 	    
 	    
+	    $tw_2_be_parsed[]=$tw;
+	    
+	}
+	
+	
+	
+	
+	
+	// cycle on the tweets
+	foreach($tw_2_be_parsed as $tw){
 	    
 	    // Create a Single page Parser
 	    $obj = new SinglePageParser($url, $this->debug);
@@ -276,6 +292,7 @@ class SinglePageParser {
     public function parse() {
 	
         // Make first request
+	/*
         $html = @file_get_contents($this->url);
 	
 	// test alternative method with curl: is better?
@@ -286,6 +303,10 @@ class SinglePageParser {
 	    
 	    $html=$curl->get($this->url);
 	}
+	 * 
+	 */
+	
+	list($html,$cinfo)=mycurl($this->url);
 	
 	// Load class simple dom for page parsing
 	$dom = new simple_html_dom();

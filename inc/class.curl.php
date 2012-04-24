@@ -15,8 +15,7 @@ class Curl
         $this->cookieJar = $cookieJarFile;
     }
 
-    function setup()
-    {
+    function setup() {
 
 
         $header = array();
@@ -75,6 +74,33 @@ class Curl
     {
         return curl_exec($this->curl);
     }
+}
+
+
+function mycurl($url){
+    
+    $ch = curl_init();
+    
+    $a=array();
+
+    curl_setopt($ch,CURLOPT_URL, $url);
+    curl_setopt($ch,CURLOPT_HEADER, 0);
+    curl_setopt($ch, CURLOPT_FOLLOWLOCATION,true);
+    curl_setopt($ch,CURLOPT_RETURNTRANSFER,true);
+    curl_setopt($ch,CURLOPT_TIMEOUT,10);
+    // curl_setopt($ch, CURLOPT_HEADERFUNCTION, 'curlHeaderCallback'); 
+    //curl_setopt($ch, CURLINFO_HEADER_OUT, true); 
+
+
+    $a[0]= @curl_exec($ch);
+    $a[1]=null;
+
+    if(!curl_errno($ch)){
+
+	$a[1]=curl_getinfo($ch);
+    }
+    
+    return $a;
 }
 
 
