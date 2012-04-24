@@ -157,6 +157,7 @@ class Tweets2Page {
 	    $page->img	 = $obj->post_image;
 	    $page->description = trim($obj->description);
 	    $page->url = $url;
+	    $page->real_url = $obj->real_url;
 	    
 	    // add original object
 	    $page->tweet=$tw;
@@ -182,7 +183,8 @@ class Tweets2Page {
 	    ."&with_twitter_user_id=true"
 	    ."&result_type=$this->result_type";
 	
-	$json=file_get_contents($url);
+	//$json=file_get_contents($url);
+	list($json,$info)=mycurl($url);
 	
 	$json=preg_replace('/"id" ?:(\d+)/', '"id":"${1}"', $json);
 	
@@ -216,6 +218,8 @@ class SinglePageParser {
     public $description;
     
     public $url;
+    
+    public $real_url;
     
     public $min_img_width=220;
     public $min_img_height=220;
@@ -308,52 +312,57 @@ class SinglePageParser {
 	
 	list($html,$cinfo)=mycurl($this->url);
 	
-	// Load class simple dom for page parsing
-	$dom = new simple_html_dom();
-	$dom->load($html);
+	if($cinfo['http_code']=='200'){
 	
-	
-	// set title
-	$this->title=@$dom->find('title',0)->innertext;
-	
-	// set h1
-	$h1=@$dom->find('h1',0)->innertext;
-	$this->h1=(is_string($h1)) ? strip_tags($h1) : '';
-	
-	// set description
-	$this->description=@$dom->find('meta[name=description]',0)->content;
+	    // Load class simple dom for page parsing
+	    $dom = new simple_html_dom();
+	    $dom->load($html);
 
-	// Search for tag <img> 
-	$images = $dom->find('img');
-	
-	// Set imgs for debug
-	if($this->debug){
+	    $this->real_url=$cinfo['url'];
 	    
-	    $this->debug_obj->img=$images;
-	    $this->debug_obj->img_count=count($images);
-	}
-	
-	
-	
-	/*
-	 *  IMG PARSING --------------------------------------------------------
-	 */
-	
-	// set img_src as null
-	$img_src=null;
-	
-	// First:
-	$img_src=$this->heuristic_image_1($images);
-	
-	// Second loop heuristic if first fails
-	if($img_src===null){
-	    
-	    $img_src=$this->heuristic_image_2($images);
-	}
+	    // set title
+	    $this->title=@$dom->find('title',0)->innertext;
 
-	$this->post_image= ($img_src===null) ? null : $this->myUrlEncode($img_src);
+	    // set h1
+	    $h1=@$dom->find('h1',0)->innertext;
+	    $this->h1=(is_string($h1)) ? strip_tags($h1) : '';
+
+	    // set description
+	    $this->description=@$dom->find('meta[name=description]',0)->content;
+
+	    // Search for tag <img> 
+	    $images = $dom->find('img');
+
+	    // Set imgs for debug
+	    if($this->debug){
+
+		$this->debug_obj->img=$images;
+		$this->debug_obj->img_count=count($images);
+	    }
+
+
+
+	    /*
+	    *  IMG PARSING --------------------------------------------------------
+	    */
+
+	    // set img_src as null
+	    $img_src=null;
+
+	    // First:
+	    $img_src=$this->heuristic_image_1($images);
+
+	    // Second loop heuristic if first fails
+	    if($img_src===null){
+
+		$img_src=$this->heuristic_image_2($images);
+	    }
+
+	    $this->post_image= ($img_src===null) ? null : $this->myUrlEncode($img_src);
+
+	    // End IMG Parsing -----------------------------------------------------
 	
-	// End IMG Parsing -----------------------------------------------------
+	}
 	
 	
 	$this->_exec_time=round((microtime(true) - $this->T0), 3);

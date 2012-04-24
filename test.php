@@ -13,52 +13,94 @@ abstract class T2P_Formatter {
 }
 
 
-class TP2_FormatterXML {
+class T2P_FormatterXML {
     
     
-    public function main($TAG, $results, $path_xml_cached="", $print_results=false){
+    private $XML;
+    
+    private $TAG;
+    
+    private $path_xml_cached;
+    
+    private $id_group;
+    
+    
+    public function __construct($results, $TAG, $id_group, $path_xml_cached='') {
 	
-	$xml_cached= $path_xml_cached."/".$TAG.".xml";
+	$this->TAG=str_replace("#", "", $TAG);
+	
+	$this->path_xml_cached=$path_xml_cached;
+	
+	$this->id_group=$id_group;
+	
+	$this->main($results);
+	
+    }
+    
+    
+    public function __print($header=true){
+	
+	if($header)
+	    header("Content-type: text/xml");
+	
+	print $this->XML;
+	
+    }
+    
+    
+    public function __save(){
+	
+	$xml_cached= $this->path_xml_cached . $this->TAG.".xml";
+	
+	$fp=fopen($xml_cached,"w");
+	$feedback=fwrite($fp,$this->XML);
+	fclose($fp);
+	
+	return $feedback;
+	
+    }
+    
+    
+    public function main($results){
+	
+	
 	
 	$XML="<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n";
 	$XML.="<tagosphere>\n";
-	$XML.="<tags>".$TAG."</tags>\n";
+	$XML.="<tags>".$this->TAG."</tags>\n";
 	$XML.="<date_creation time=\"".time()."\">".date('c')."</date_creation>\n";
 	$XML.="<n_items>".count($results)."</n_items>\n";
 	$XML.="<rows>\n";
 
-	foreach($results as $obj){
-
-	    $XML.=self::node($obj,$id_group,$TAG);
+	foreach($results->pages as $obj){
+	    
+	    $XML.=$this->node($obj,$this->id_group,$this->TAG);
 	}
 
 	$XML.="</rows>\n";
 
 	$XML.="</tagosphere>\n";
 
-	$fp=fopen($xml_cached,"w");
-	$feedback=fwrite($fp,$XML);
-	fclose($fp);
+	$this->XML=$XML;
 
-	return array($XML, $feedback);
     }
     
     
     
     
-    private function node($obj, $id_group, $TAG){
-
+    private function node($obj){
+	
 	$XMLROW='<row>';
 	$XMLROW.="<icon>http://twitter.com/phoenix/favicon.ico</icon>\n";
-	$XMLROW.="<permalink><![CDATA[".$obj->page->real_url."]]></permalink>\n";
-	$XMLROW.="<url><![CDATA[".$obj->page->url."]]></url>\n";
-	$XMLROW.="<title><![CDATA[".trim($obj->page->title)."]]></title>\n";
-	$XMLROW.="<content><![CDATA[".trim($obj->page->description)."]]></content>\n";
-	$XMLROW.="<date>". date("Y-m-d H:i",$obj->tweet->time)."</date>\n";
+	$XMLROW.="<permalink><![CDATA[".$obj->real_url."]]></permalink>\n";
+	$XMLROW.="<url><![CDATA[".$obj->url."]]></url>\n";
+	$XMLROW.="<title><![CDATA[".trim($obj->title)."]]></title>\n";
+	$XMLROW.="<content><![CDATA[".trim($obj->description)."]]></content>\n";
+	$XMLROW.="<date>". date("Y-m-d H:i",  strtotime($obj->tweet->created_at))."</date>\n";
 	$XMLROW.="<uuid>". $obj->tweet->id."</uuid>\n";
-	$XMLROW.="<dae_gid>". $id_group ."</dae_gid>\n";
-	$XMLROW.="<ht>". $TAG ."</ht>\n";
-	$XMLROW.="<image>".$obj->page->img."</image>\n";
+	$XMLROW.="<dae_gid>". $this->id_group ."</dae_gid>\n";
+	$XMLROW.="<ht>". $this->TAG ."</ht>\n";
+	$XMLROW.="<image>".$obj->img."</image>\n";
 	$XMLROW.="</row>";
 
 	return $XMLROW;
@@ -144,10 +186,10 @@ $results=$Pages->parseTweets($s, 10);
 
 // Formatters:
 
-//$F = new T2P_FormatterXML($results);
-$F = new T2P_FormatterHTML($results);
+$F = new T2P_FormatterXML($results, $s, 4);
+//$F = new T2P_FormatterHTML($results);
 
-print $F->__print();
+print $F->__print(false);
 
 print $results->exec_time;
 
