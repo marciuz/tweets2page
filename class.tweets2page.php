@@ -18,36 +18,69 @@ class Tweets2Page {
     
     public $debug=false;
     
-    public $debug_obj;
-    
     public $max_tweets=10;
     
     private $res;
     
     private $result_type='mixed';
     
-    public $skip_sites=array();
+    private $skip_sites=array();
     
-    protected $T0;
+    private $T0;
     
-    public $heuristic=2;
+    private $heuristic=2;
     
-    protected $cache_db=true;
+    private $cache_db=true;
+    
+    private $log="-------------------------------\n";
     
     
-    
+    /**
+     * Set the T0, initialize output class, load blackist
+     */
     public function __construct(){
 	
 	$this->T0=microtime(true);
-	
-	$this->debug_obj=new stdClass();
 	
 	$this->res=new stdClass();
 	
 	$this->res->pages=array();
 	
+	// load blacklist
+	if($this->cache_db) 
+	    $this->skip_sites=dbcache::get_blacklist();
+	
     }
     
+    
+    /**
+     * Add a skyp site to blacklist
+     * @param string $url 
+     */
+    public function add_skyp_site($url){
+	
+	$this->skip_sites[]=$url;
+    }
+    
+    
+    /**
+     * Set the cache (default=>true)
+     * @param bool $bool 
+     */
+    public function set_cache($bool){
+	
+	$this->cache_db = (bool) $bool;
+    }
+    
+    
+    /**
+     *
+     * @param int $heu 1|2|3 default=>2
+     */
+    public function set_heuristic($heu){
+	
+	$this->heuristic = (intval($heu)>3) ? 3 : $heu;
+    }
     
     public function parseTweets($search, $max=0, $type=''){
 	
@@ -69,8 +102,13 @@ class Tweets2Page {
 	}
 	
 	
+	$this->add_log("Search for twitter: $search");
+	
 	//  Get the Tweets!
 	$tweets= $this->getTweets($search);
+	
+	$this->add_log("Found: ".count($tweets->results));
+	
 	
 	// Tweets to be parsed
 	$tw_2_be_parsed=array();
@@ -86,12 +124,14 @@ class Tweets2Page {
 	    // if there is no url in this tweet...
 	    if(!is_array($tw->entities->urls) || count($tw->entities->urls)==0){
 		
+		$this->add_log("No url, skip");
 		continue;
 	    }
 	    else{
 		
 		//$url= $this->find_url($tw->text);
 		$url= $tw->entities->urls[0]->expanded_url;
+		$this->add_log("Analyze: $url");
 	    }
 	    
 	    
@@ -101,9 +141,12 @@ class Tweets2Page {
 	    // check session duplicates in url
 	    if(in_array($url, $url_to_check)){
 		
+		$this->add_log("Skip (duplicate): $url");
 		continue;
 	    }
 	    else {
+		
+		// put in the list
 		$url_to_check[]=$url;
 	    }
 
@@ -112,44 +155,34 @@ class Tweets2Page {
 	    // 
 	    // if pdf, continue
 	    if(strtolower(substr($url,-4,4))=='.pdf') {
+		
+		$this->add_log("Skip (pdf): $url");
 		continue;
 	    }
 	    
 	    
-	    // 3: Is in the black list?
-	    // 
+	    // 3: Is in skyp urls? (or in DB black list?)
 	    // skip the specified websites
-	    if(count($this->skip_sites)>0){
+	    //
+	    if($this->is_in_skyp_urls($url)){
 		
-		$found=false;
-		
-		for($i=0;$i<count($this->skip_sites);$i++){
-		    
-		    if(strpos($url, $this->skip_sites[$i])!==false){
-			
-			$found=true;
-		    }
-		}
-		
-		if($found) continue;
-		
+		$this->add_log("Skip (in blacklist): $url");
+		continue;
 	    }
 	    
+	   
 	 
-	    // 4: is in DB?
-	    // TODO
-	    
-	    
+	    // ELSE:
 	    $tw_2_be_parsed[]=$tw;
 	    
 	}
 	
 	
+	$this->add_log("Tweets to be parsed: ".count($tw_2_be_parsed));
 	
 	
 	
-	
-	
+	$in_cache=0;
 	
 	// cycle on the tweets
 	foreach($tw_2_be_parsed as $tw){
@@ -160,12 +193,31 @@ class Tweets2Page {
 	    if($this->cache_db && dbcache::exists($url)){
 		
 		$this->res->pages[]=dbcache::get($url);
+		$this->add_log("Taked from cache: ".$url);
+		$in_cache++;
 	    }
 	    else{
 	    
+		$this->add_log("Start parsing: $url");
+		
 		// Create a Single page Parser
-		$obj = new SinglePageParser($url, array(), $this->debug);
+		$obj = new SinglePageParser($url, array(), $this->debug, $this->heuristic);
+		
+		$this->add_log("Finishing parsing: $url");
+		
+		
 
+		// Is possible there are alias url (eb bit.ly)
+		// This is blacklisted if is alias of skypurl
+		
+		if($this->cache_db && $this->is_in_skyp_urls($obj->real_url)){
+		    
+		    dbcache::add_to_blacklist($url, $obj->real_url);
+		    $this->add_log("Real URL added to blacklist: $url, alias of ".$obj->real_url);
+		    continue;
+		}
+
+		// add info heuristic for debug
 		$obj->heuristic=$this->heuristic;
 
 		// Start print results
@@ -175,25 +227,53 @@ class Tweets2Page {
 		$page->description = trim($obj->description);
 		$page->url = $url;
 		$page->real_url = $obj->real_url;
+		$page->heuristic = $obj->real_url;
 
 		// add original object
 		$page->tweet=$tw;
 
 		$this->res->pages[]=$page;
 		
-		dbcache::store($url,date('c'), $page);
+		if($this->cache_db) {
+		    dbcache::store($url,date('c'), $page, $search);
+		    $this->add_log("Add to cache: $url");
+		}
 	    }
 
 	}
 	
 	// set the exec time
 	$this->res->exec_time=round( (microtime(true) - $this->T0), 3);
+	$this->add_log("Finish in: ".$this->res->exec_time);
+	$this->add_log("Found: ".count($tweets->results).", Parsed: ".count($tw_2_be_parsed).", In cache: ". count($in_cache));
 	
 	return $this->res;
     }
     
     
-    
+    public function is_in_skyp_urls($url){
+	
+	$found=false;
+	
+	// skip the specified websites
+	if(count($this->skip_sites)>0){
+
+	    for($i=0;$i<count($this->skip_sites);$i++){
+
+		if(strpos($url, $this->skip_sites[$i])!==false){
+
+		    $found=true;
+		    break;
+		}
+	    }
+	}
+	
+	return $found;
+    }
+
+
+
+
     protected function getTweets($search){
 	
 	$url="http://search.twitter.com/search.json?"
@@ -221,11 +301,29 @@ class Tweets2Page {
 	return  (preg_match($reg_exUrl, $text, $url)) ? $url[0] : false;
     }
     
+    private function add_log($string){
+	
+	$this->log  .=round(microtime(true) -$this->T0, 4)."\t"
+		    .memory_get_usage()."\t"
+		    .str_replace(array("\n","\r","\t")," ",$string)."\n";
+    }
+    
+    public function log(){
+	
+	return $this->log;
+    }
+    
 }
 
 
 
 
+
+
+
+/**
+ * Class SIngle Parser 
+ */
 class SinglePageParser {
     
     public $debug;
@@ -263,13 +361,15 @@ class SinglePageParser {
     
     
     
-    public function __construct($url, $contents=array(), $debug=false) {
+    public function __construct($url, $contents=array(), $debug=false, $heuristic=2) {
 	
 	$this->T0 = microtime(true);
 	
 	$this->debug=$debug;
 	
 	$this->url=$url;
+	
+	$this->heuristic=$heuristic;
 	
 	if(!is_array($contents) || count($contents)==0){
 	    
@@ -644,6 +744,8 @@ class SinglePageParser {
 	}
     }
     
+    
+
 }
 
 

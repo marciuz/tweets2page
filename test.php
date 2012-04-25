@@ -1,5 +1,6 @@
 <?php
 
+require_once("./inc/conf.php");
 require_once("./inc/class.dbcache.php");
 require_once("./inc/class.curl.php");
 require_once("./inc/simple_html_dom.php");
@@ -21,16 +22,12 @@ class T2P_FormatterXML {
     
     private $TAG;
     
-    private $path_xml_cached;
-    
     private $id_group;
     
     
-    public function __construct($results, $TAG, $id_group, $path_xml_cached='') {
+    public function __construct($results, $TAG, $id_group) {
 	
 	$this->TAG=str_replace("#", "", $TAG);
-	
-	$this->path_xml_cached=$path_xml_cached;
 	
 	$this->id_group=$id_group;
 	
@@ -49,13 +46,27 @@ class T2P_FormatterXML {
     }
     
     
-    public function __save(){
+    public function __save($path=''){
 	
-	$xml_cached= $this->path_xml_cached . $this->TAG.".xml";
+	if($path!='' && substr($path,-1,1)!='/'){
+	    $path.="/";
+	}
 	
-	$fp=fopen($xml_cached,"w");
-	$feedback=fwrite($fp,$this->XML);
-	fclose($fp);
+	$xml_cached= $path . $this->TAG.".xml";
+	
+	if(is_writable($path)){
+
+	    $fp=fopen($xml_cached,"w");
+	    $feedback=fwrite($fp,$this->XML);
+	    fclose($fp);
+	}
+	else{
+	    error_log("File $xml_cached not writable!"
+		, 1
+                ,MAIL_ERROR_LOG);
+	    
+	    trigger_error("File $xml_cached not writable!", E_USER_ERROR);
+	}
 	
 	return $feedback;
 	
@@ -173,42 +184,46 @@ class T2P_FormatterHTML {
 
 // TEST: #da12
 
-$s="#da12";
+$s="#da12cloud";
 
 $Pages = new Tweets2Page();
 
 $Pages->heuristic=2;
 
-$Pages->debug=true;
+$Pages->add_skyp_site("daa.ec.europa.eu");
 
-$Pages->skip_sites[]="daa.ec.europa.eu";
+$results=$Pages->parseTweets($s, 20);
 
-$results=$Pages->parseTweets($s, 10);
+print $Pages->log();
 
-print $results->exec_time;
+$Pages2 = new Tweets2Page();
 
-/*
+$Pages2->heuristic=3;
 
-$Pages = new Tweets2Page();
+$Pages2->skip_sites[]="daa.ec.europa.eu";
 
-$Pages->heuristic=3;
+$results2=$Pages2->parseTweets($s, 20);
 
-$Pages->debug=true;
+print $Pages2->log();
 
-$Pages->skip_sites[]="daa.ec.europa.eu";
-
-$results=$Pages->parseTweets($s, 10);
-
-print "--".$results->exec_time;
-
-*/
 
 // Formatters:
 
-$F = new T2P_FormatterXML($results, $s, 4);
-//$F = new T2P_FormatterHTML($results);
+echo "<hr />\n";
 
- print $F->__print(false);
+//$F = new T2P_FormatterXML($results, $s, 4);
+$F = new T2P_FormatterHTML($results);
+
+print $F->__print();
+
+echo "<hr />\n";
+ 
+ //$F = new T2P_FormatterXML($results, $s, 4);
+$F = new T2P_FormatterHTML($results2);
+
+print $F->__print();
+
+// $F->__save("/tmp/xml/");
 
 
 
