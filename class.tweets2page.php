@@ -30,6 +30,10 @@ class Tweets2Page {
     
     protected $T0;
     
+    public $heuristic=2;
+    
+    protected $cache_db=true;
+    
     
     
     public function __construct(){
@@ -144,27 +148,41 @@ class Tweets2Page {
 	
 	
 	
+	
+	
+	
 	// cycle on the tweets
 	foreach($tw_2_be_parsed as $tw){
 	    
+	    
 	    $url= $tw->entities->urls[0]->expanded_url;
 	    
-	    // Create a Single page Parser
-	    $obj = new SinglePageParser($url, array(), $this->debug);
+	    if($this->cache_db && dbcache::exists($url)){
+		
+		$this->res->pages[]=dbcache::get($url);
+	    }
+	    else{
 	    
-	    
-	    // Start print results
-	    $page=new stdClass();
-	    $page->title = $obj->get_title();
-	    $page->img	 = $obj->post_image;
-	    $page->description = trim($obj->description);
-	    $page->url = $url;
-	    $page->real_url = $obj->real_url;
-	    
-	    // add original object
-	    $page->tweet=$tw;
+		// Create a Single page Parser
+		$obj = new SinglePageParser($url, array(), $this->debug);
 
-	    $this->res->pages[]=$page;
+		$obj->heuristic=$this->heuristic;
+
+		// Start print results
+		$page=new stdClass();
+		$page->title = $obj->get_title();
+		$page->img	 = $obj->post_image;
+		$page->description = trim($obj->description);
+		$page->url = $url;
+		$page->real_url = $obj->real_url;
+
+		// add original object
+		$page->tweet=$tw;
+
+		$this->res->pages[]=$page;
+		
+		dbcache::store($url,date('c'), $page);
+	    }
 
 	}
 	
@@ -226,11 +244,22 @@ class SinglePageParser {
     public $min_img_width=220;
     public $min_img_height=220;
     
+    public $post_image;
+    
+    
+    /**
+     * Min imag size for heuristic 3
+     * @var int 
+     */
+    public $min_img_size=20000;
+    
     private $loop2_allowed_formats=array('.jpg');
     
     private $T0;
     
     public $_exec_time;
+    
+    public $heuristic=2;
     
     
     
@@ -342,7 +371,12 @@ class SinglePageParser {
 	    // Second loop heuristic if first fails
 	    if($img_src===null){
 
-		$img_src=$this->heuristic_image_2($images);
+		if($this->heuristic==2){
+		    $img_src=$this->heuristic_image_2($images);
+		}
+		else if($this->heuristic==3){
+		    $img_src=$this->heuristic_image_3($images);
+		}
 	    }
 
 	    $this->post_image= ($img_src===null) ? null : $this->myUrlEncode($img_src);
@@ -507,6 +541,108 @@ class SinglePageParser {
     
     
     
+    /**
+     * Heuristic method 3, based on CURL multi
+     * 
+     * 
+     * @param type $images
+     * @return null 
+     */
+    protected function heuristic_image_3($images){
+	
+	if(!is_array($images)) {
+	    
+	    return null;
+	}
+	else{
+	    
+	    $url_img_for_parsing=array();
+	    
+	    $img_src=null;
+	
+	    foreach($images as $i=>$imgs){
+
+		// Change path to absolute?
+		$img_tmp_src=  $this->path_image($imgs->src);
+
+		// filter on formats: if is not in allowed skip and continue
+		if(!in_array(strtolower(substr($img_tmp_src, -4, 4)), $this->loop2_allowed_formats )){
+
+		    continue;
+		}
+		else{
+		    
+		    $url_img_for_parsing[]=$img_tmp_src;
+		}
+	    }
+
+	    $mh = curl_multi_init();
+
+	    $handles = array();
+
+	    for($i=0;$i< count($url_img_for_parsing);$i++){
+
+		$ch = curl_init();
+
+		curl_setopt($ch, CURLOPT_URL, $url_img_for_parsing[$i]);
+		curl_setopt($ch, CURLOPT_HEADER, true);
+		curl_setopt($ch, CURLOPT_NOBODY, true);
+		//curl_setopt($ch, CURLOPT_FOLLOWLOCATION,true);
+		curl_setopt($ch, CURLOPT_RETURNTRANSFER,true);
+
+		curl_setopt($ch, CURLOPT_TIMEOUT,5);
+
+		curl_multi_add_handle($mh,$ch);
+
+		$handles[] = $ch;
+	    }
+
+	    $running=null;
+	    
+	    do {
+		
+		curl_multi_exec($mh,$running);
+		
+	    } while ($running > 0);
+	    
+	    
+
+	    for($i=0;$i< count($handles);$i++){
+		
+		curl_multi_getcontent($handles[$i]);
+
+		$ii=curl_getinfo($handles[$i]);
+		
+		// print_r($ii);
+		
+		// is image?
+		if(strpos($ii['content_type'],'image/')!==false){
+		    
+		    if($ii['download_content_length']>$this->min_img_size) {
+			
+			$img_src=$ii['url'];
+			
+			curl_multi_remove_handle($mh,$handles[$i]);
+			curl_multi_close($mh);
+			
+			if($this->debug){
+			    $this->debug_obj->found_img_n=$i;
+			    $this->debug_obj->heuristic=3;
+			}
+			
+			return $img_src;
+		    }
+		}
+
+		curl_multi_remove_handle($mh,$handles[$i]);
+	    }
+
+
+	    curl_multi_close($mh);
+	    
+	    return null;
+	}
+    }
     
 }
 

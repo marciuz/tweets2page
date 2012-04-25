@@ -1,5 +1,6 @@
 <?php
 
+require_once("./inc/class.dbcache.php");
 require_once("./inc/class.curl.php");
 require_once("./inc/simple_html_dom.php");
 require_once("./class.tweets2page.php");
@@ -172,9 +173,11 @@ class T2P_FormatterHTML {
 
 // TEST: #da12
 
-$s="#da12data";
+$s="#da12";
 
 $Pages = new Tweets2Page();
+
+$Pages->heuristic=2;
 
 $Pages->debug=true;
 
@@ -182,14 +185,30 @@ $Pages->skip_sites[]="daa.ec.europa.eu";
 
 $results=$Pages->parseTweets($s, 10);
 
+print $results->exec_time;
 
+/*
+
+$Pages = new Tweets2Page();
+
+$Pages->heuristic=3;
+
+$Pages->debug=true;
+
+$Pages->skip_sites[]="daa.ec.europa.eu";
+
+$results=$Pages->parseTweets($s, 10);
+
+print "--".$results->exec_time;
+
+*/
 
 // Formatters:
 
 $F = new T2P_FormatterXML($results, $s, 4);
 //$F = new T2P_FormatterHTML($results);
 
-print $F->__print(false);
+ print $F->__print(false);
 
-print $results->exec_time;
+
 
