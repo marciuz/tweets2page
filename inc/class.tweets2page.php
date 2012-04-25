@@ -217,7 +217,7 @@ class Tweets2Page {
 		// Is possible there are alias url (eb bit.ly)
 		// This is blacklisted if is alias of skypurl
 		
-		if($this->cache_db && $this->is_in_skyp_urls($obj->real_url)){
+		if($this->is_in_skyp_urls($obj->real_url)){
 		    
 		    dbcache::add_to_blacklist($url, $obj->real_url);
 		    $this->add_log("Real URL added to blacklist: $url, alias of ".$obj->real_url, 7);
