@@ -252,7 +252,9 @@ class Tweets2Page {
 	// set the exec time
 	$this->res->exec_time=round( (microtime(true) - $this->T0), 3);
 	$this->add_log("Finish in: ".$this->res->exec_time, 1);
-	$this->add_log("Found: ".count($tweets->results).", Parsed: ".count($tw_2_be_parsed).", In cache: ". count($in_cache), 1);
+	$this->add_log("Found: ".count($tweets->results)
+		.", Parsed: ".count($tw_2_be_parsed)
+		.", In cache: ". $in_cache, 1);
 	
 	return $this->res;
     }
@@ -310,7 +312,7 @@ class Tweets2Page {
     
     private function add_log($string, $level=5){
 	
-	if($this->log_level <= $level){
+	if($this->log_level >= $level){
 	    $this->log  .=round(microtime(true) -$this->T0, 4)."\t"
 			.memory_get_usage()."\t"
 			.str_replace(array("\n","\r","\t")," ",$string)."\n";
