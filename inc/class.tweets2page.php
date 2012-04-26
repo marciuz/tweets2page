@@ -498,16 +498,14 @@ class SinglePageParser {
     
     /**
      * The images can be as http://domain.com/image.xx or /relative/img.xxx
-     * The case "../relative/img.xxx is not covered
      * @param type $path
      * @return type 
-     * @todo Create case for relative paths like "../foo/bar.jpg"
      */
     protected function path_image($path){
 	
 	if(strpos($path,'http')===false){
 	    
-	    $pp=parse_url($this->url);
+	    $pp=parse_url($this->real_url);
 
 	    if($path{0}=="/"){
 
@@ -515,7 +513,7 @@ class SinglePageParser {
 	    }
 	    else if(substr($path,0,3)=='../'){
 		
-		return $this->relative_image($this->url, $path);
+		return $this->relative_image($this->real_url, $path);
 	    }
 	}
 	else{

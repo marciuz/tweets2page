@@ -71,7 +71,7 @@ class T2P_FormatterXML {
 	$XML.="<tagosphere>\n";
 	$XML.="<tags>".$this->TAG."</tags>\n";
 	$XML.="<date_creation time=\"".time()."\">".date('c')."</date_creation>\n";
-	$XML.="<n_items>".count($results)."</n_items>\n";
+	$XML.="<n_items>".count($results->pages)."</n_items>\n";
 	$XML.="<rows>\n";
 
 	foreach($results->pages as $obj){
