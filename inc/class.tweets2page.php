@@ -177,6 +177,14 @@ class Tweets2Page {
 		continue;
 	    }
 	    
+	    
+	    // 4: is in the stoplist?
+	    if(in_stoplist($url)){
+		
+		$this->add_log("Skip (in stoplist): $url", 8);
+		continue;
+	    }
+	    
 	   
 	 
 	    // ELSE:
@@ -217,13 +225,15 @@ class Tweets2Page {
 		// Is possible there are alias url (eb bit.ly)
 		// This is blacklisted if is alias of skypurl
 		
-		if($this->is_in_skyp_urls($obj->real_url)){
+		if($this->is_in_skyp_urls($obj->real_url) || in_stoplist($obj->real_url)){
 		    
 		    dbcache::add_to_blacklist($url, $obj->real_url);
 		    $this->add_log("Real URL added to blacklist: $url, alias of ".$obj->real_url, 7);
 		    continue;
 		}
-
+		
+		
+		
 		// add info heuristic for debug
 		$obj->heuristic=$this->heuristic;
 
@@ -363,7 +373,7 @@ class SinglePageParser {
      */
     public $min_img_size=20000;
     
-    private $loop2_allowed_formats=array('.jpg');
+    private $loop2_allowed_formats=array('.jpg', 'jpeg');
     
     private $T0;
     
@@ -613,6 +623,12 @@ class SinglePageParser {
 
 		    continue;
 		}
+		
+		// is domain in stoplist?
+		if(in_stoplist($img_tmp_src)){
+		    
+		    continue;
+		}
 
 		// CRITICAL: get image info with a image request
 		$img_size= @getimagesize($img_tmp_src);
@@ -667,6 +683,13 @@ class SinglePageParser {
 
 		    continue;
 		}
+		
+		// is domain in stoplist?
+		else if(in_stoplist($img_tmp_src)){
+		    
+		    continue;
+		}
+		
 		else{
 		    
 		    $url_img_for_parsing[]=$img_tmp_src;
@@ -782,6 +805,26 @@ function mycurl($url){
 
 
 
+
+
+function in_stoplist($url){
+    
+    global $stoplist;
+    
+    $n=count($stoplist);
+    
+    $out=false;
+    
+    for($i=0;$i<$n;$i++){
+	if(stristr($url,$stoplist[$i])!==false){
+	    
+	    $out=true;
+	    break;
+	}
+    }
+
+    return $out;
+}
 
 
 
